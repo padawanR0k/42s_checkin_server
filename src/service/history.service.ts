@@ -77,9 +77,6 @@ export const createHistory = async (user: Users, type: string): Promise<void> =>
         created_at: now().toDate()
     });
 	await log.save();
-	/*logger.info(`create log: { id: ${user._id}, cardId: ${card.cardId}, type: ${type} }`);
-	const log = await DB.log.create({ user_id: user._id, cardCardId: card.cardId, logType: type });
-	await log.save();*/
 };
 
 /**

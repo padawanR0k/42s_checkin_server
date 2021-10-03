@@ -41,8 +41,8 @@ export const login = async (user: Users): Promise<string> => {
 /**
  * 어드민 여부 확인
  */
-export const checkIsAdmin = async (id: number) => {
-    const user = await Users.findOne({ where: { _id: id } })
+export const checkIsAdmin = async (login: string) => {
+    const user = await Users.findOne({ where: { login } })
     logger.info({
         type: 'get',
         message: 'check user is admin',
@@ -61,7 +61,6 @@ export const checkIn = async (userInfo: IJwtUser, cardId: string) => {
     if (!userInfo) {
         throw new ApiError(httpStatus.UNAUTHORIZED, '유저 정보 없음');
     }
-    const userId = userInfo._id;
     const _cardId = parseInt(cardId);
     let notice = false;
     const cardOwner = await Users.findOne({ where: { card_no: cardId } });
@@ -73,7 +72,7 @@ export const checkIn = async (userInfo: IJwtUser, cardId: string) => {
         });
         throw new ApiError(httpStatus.CONFLICT, '이미 사용중인 카드입니다.');
     }
-    const user = await Users.findOne({ where: { _id: userId } });
+    const user = await Users.findOne({ where: { login: userInfo.name } });
     const clusterType = user.getClusterType(_cardId)
     const { enterCnt, maxCnt, result } = await checkCanEnter(clusterType, 'checkIn'); //현재 이용자 수 확인
     if (!result) {
@@ -93,7 +92,7 @@ export const checkIn = async (userInfo: IJwtUser, cardId: string) => {
         logger.error({
             type: 'action',
             message: 'checkin',
-            data: { login: userInfo.name, userId, cardId },
+            data: { ...userInfo, cardId },
         });
         await logService.createHistory(user, 'checkIn');
         return {
@@ -111,8 +110,7 @@ export const checkOut = async (userInfo: IJwtUser) => {
     if (!userInfo) {
         throw new ApiError(httpStatus.UNAUTHORIZED, '유저 정보 없음');
     }
-    const id = userInfo._id;
-    const user = await Users.findOne({ where: { _id: id } });
+    const user = await Users.findOne({ where: { login: userInfo.name } });
     logService.createHistory(user, 'checkOut');
     const clusterType = user.getClusterType(user.card_no)
     await user.setState('checkOut', user.login);
@@ -122,7 +120,7 @@ export const checkOut = async (userInfo: IJwtUser) => {
     if (enterCnt >= maxCnt - 5) {
         noticer(CLUSTER_CODE[clusterType], maxCnt - enterCnt - 1);
     }
-    logger.info({ action: 'checkOut', userId: id });
+    logger.info({ action: 'checkOut', ...userInfo });
     return true;
 };
 
@@ -133,8 +131,7 @@ export const status = async (userInfo: IJwtUser) => {
     if (!userInfo) {
         throw new ApiError(httpStatus.UNAUTHORIZED, '유저 정보 없음');
     }
-    const id = userInfo._id;
-    const user = await Users.findOne({ where: { '_id': id } });
+    const user = await Users.findOne({ where: { login: userInfo.name } });
     if (!user) {
         logger.error({
             type: 'get',
@@ -161,7 +158,7 @@ export const forceCheckOut = async (adminInfo: IJwtUser, userId: string) => {
     if (!adminInfo) {
         throw new ApiError(httpStatus.UNAUTHORIZED, '관리자 정보 없음');
     }
-    await checkIsAdmin(adminInfo._id);
+    await checkIsAdmin(adminInfo.name);
     const _userId = parseInt(userId);
     const user = await Users.findOne({ where: { _id: _userId } });
     if (!user) {
